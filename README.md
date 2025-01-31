@@ -25,6 +25,11 @@
 - **Dependency Management**:
   - Automatically installs all required dependencies if they’re not already installed.
 
+- **Watchdog Integration**:
+  - Continuously monitors a specified folder (and its subfolders) for new or modified video files with supported extensions (e.g., `.mp4`, `.avi`, `.mkv`).
+  - Automatically triggers `SubFlow.py` for each detected video file, enabling seamless subtitle extraction, translation, or other custom processing tasks.
+  - Processes multiple files sequentially, ensuring no overlap or resource contention.
+
 ---
 
 ## **Installation**
@@ -67,6 +72,13 @@ python subs_full.py "C:\path\to\folder" LOG_NAME
 ```bash
 python subs_full.py "C:\path\to\subtitle.en.srt" LOG_NAME
 ```
+**Watchdog Usage:**
+To enable real-time monitoring of a folder for new or modified video files, use the following command:
+```bash
+python SubFlowDaemon.py /path/to/your/folder
+```
+The watchdog daemon will monitor the specified folder and trigger SubFlow.py for each detected video file.
+Files are processed sequentially, and real-time output is displayed in the console.
 ---
 ## **Configuration**
 You can customize the following settings directly in the script:
