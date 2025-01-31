@@ -12,8 +12,8 @@ import torch
 # Configurable Section
 # ============================
 IGNORE_FOLDERS = ["Los Simpsons", "The Expanse Complete Series", "The Leftovers"]
-OPENSUBTITLES_USER = "user"  # Replace with your OpenSubtitles username
-OPENSUBTITLES_PASSWORD = "password"  # Replace with your OpenSubtitles password
+OPENSUBTITLES_USER = "tacul"  # Replace with your OpenSubtitles username
+OPENSUBTITLES_PASSWORD = "corderos"  # Replace with your OpenSubtitles password
 TARGET_LANGUAGE = "es"  # Default target language (e.g., "es" for Spanish, "fr" for French)
 
 def install_dependencies():
@@ -30,14 +30,14 @@ def install_dependencies():
     for package, install_name in required_packages.items():
         try:
             __import__(package)
-            print(f"✓ {package} already installed")
+            print(f"[OK] {package} already installed")
         except ImportError:
-            print(f"● Installing {package}...")
+            print(f"[INFO] Installing {package}...")
             subprocess.check_call(
                 [sys.executable, "-m", "pip", "install", install_name],
                 stdout=subprocess.DEVNULL
             )
-            print(f"✓ {package} installed successfully")
+            print(f"[OK] {package} installed successfully")
             installed += 1
     if installed == 0:
         print("All dependencies are already installed!")
@@ -77,7 +77,7 @@ def translate_srt(input_file, src_lang, tgt_lang):
     """Main translation function with enhanced GPU monitoring"""
     start_time = datetime.now()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"\nStarting translation: {src_lang} → {tgt_lang}")
+    print(f"\nStarting translation: {src_lang} -> {tgt_lang}")
     print(f"Using: {'GPU acceleration' if device.type == 'cuda' else 'CPU'} mode")
     print(f"Input file: {os.path.abspath(input_file)}")
 
@@ -126,7 +126,7 @@ def translate_srt(input_file, src_lang, tgt_lang):
             print(f"  GPU VRAM: {mem_usage:.2f} GB used | {idx}/{total_subs} ({idx / total_subs:.0%})")
         else:
             progress = idx / total_subs
-            print(f"  █ {idx}/{total_subs} ({progress:.0%})", end='\r')
+            print(f"  # {idx}/{total_subs} ({progress:.0%})", end='\r')
 
     # Cleanup
     if device.type == 'cuda':
