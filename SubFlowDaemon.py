@@ -71,6 +71,17 @@ class VideoFileHandler(FileSystemEventHandler):
             if ext.lower() in VIDEO_EXTENSIONS:  # Check if the file is a video
                 print(f"New video file detected: {file_path}")
                 file_queue.put(file_path)  # Add the file to the queue
+    def on_moved(self, event):
+        """
+        Triggered when a file is renamed or moved in the monitored directory.
+        :param event: The file system event.
+        """
+        if not event.is_directory:  # Ensure it's a file, not a directory
+            dest_path = event.dest_path  # Path after renaming/moving
+            _, ext = os.path.splitext(dest_path)
+            if ext.lower() in VIDEO_EXTENSIONS:  # Check if the renamed file is a video
+                print(f"Renamed video file detected: {dest_path}")
+                file_queue.put(dest_path)  # Add the renamed file to the queue                
 
 def start_monitoring(folder_path):
     """
