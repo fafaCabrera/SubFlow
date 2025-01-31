@@ -1,5 +1,6 @@
-subliminal
-transformers
-torch
-srt
-sentencepiece
+subliminal==2.0.8
+transformers>=4.19.2
+torch>=1.10.0
+srt==3.0.1
+pysrt==1.1.2
+requests==2.27.1
