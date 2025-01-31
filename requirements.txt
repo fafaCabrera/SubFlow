@@ -1,0 +1,5 @@
+subliminal
+transformers
+torch
+srt
+sentencepiece
