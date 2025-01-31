@@ -62,15 +62,15 @@ pip install -r requirements.txt
 **Examples:**
 1. Process a Single Video File :
 ```bash
-python subs_full.py "C:\path\to\video.mp4" LOG_NAME
+python SubFlow.py "C:\path\to\video.mp4" LOG_NAME
 ```
 2. Process a Folder of Videos :
 ```bash
-python subs_full.py "C:\path\to\folder" LOG_NAME
+python SubFlow.py "C:\path\to\folder" LOG_NAME
 ```
 3. Process a Single Subtitle File :
 ```bash
-python subs_full.py "C:\path\to\subtitle.en.srt" LOG_NAME
+python SubFlow.py "C:\path\to\subtitle.en.srt" LOG_NAME
 ```
 **Watchdog Usage:**
 To enable real-time monitoring of a folder for new or modified video files, use the following command:
