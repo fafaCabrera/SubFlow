@@ -35,7 +35,7 @@ Make sure you have Python 3.7 or higher installed. You can download it from [pyt
 ### **Step 2: Clone the Repository**
 Clone this repository to your local machine:
 ```bash
-git clone https://github.com/yourusername/SubFlow.git
+git clone https://github.com/fafaCabrera/SubFlow.git
 cd SubFlow
 ```
 
