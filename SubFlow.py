@@ -12,8 +12,8 @@ import torch
 # Configurable Section
 # ============================
 IGNORE_FOLDERS = ["Los Simpsons", "The Expanse Complete Series", "The Leftovers"]
-OPENSUBTITLES_USER = "tacul"  # Replace with your OpenSubtitles username
-OPENSUBTITLES_PASSWORD = "corderos"  # Replace with your OpenSubtitles password
+OPENSUBTITLES_USER = "user"  # Replace with your OpenSubtitles username
+OPENSUBTITLES_PASSWORD = "password"  # Replace with your OpenSubtitles password
 TARGET_LANGUAGE = "es"  # Default target language (e.g., "es" for Spanish, "fr" for French)
 
 def install_dependencies():
