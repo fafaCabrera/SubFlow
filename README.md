@@ -1,4 +1,5 @@
-# SubFlow.py - README
+# SubFlow.py
+[![Python Version](https://img.shields.io/badge/Python-3.7%2B-blue)](https://www.python.org/) [![License](https://img.shields.io/badge/License-MIT-green)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
