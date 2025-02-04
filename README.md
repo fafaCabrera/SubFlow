@@ -62,14 +62,14 @@ The script accepts two arguments:
   python SubFlow.py /path/to/video.mkv my_log
   ```
 
-- Process a folder of video files:
+- Monitor a folder of video files:
   ```bash
   python SubFlow.py /path/to/folder my_log
   ```
 
-- Monitor a folder in daemon mode:
+- Monitor more than on folder in daemon mode:
   ```bash
-  python SubFlow.py /path/to/folder my_log
+  python SubFlow.py /path/to/folder1 /path/to/folder2 my_log
   ```
 
 ---
