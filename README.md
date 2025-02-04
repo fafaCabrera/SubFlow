@@ -25,18 +25,22 @@
 
 ## Installation
 
-### Prerequisites
+### **Step 1: Install Python**
+Make sure you have Python 3.7 or higher installed. You can download it from [python.org](https://www.python.org/downloads/).
 
-1. **Python 3.7+**: Ensure Python is installed on your system.
-2. **Dependencies**:
-   - Install the required dependencies using the provided `requirements.txt` file:
-     ```bash
-     pip install -r requirements.txt
-     ```
+### **Step 2: Clone the Repository**
+Clone this repository to your local machine:
+```bash
+git clone https://github.com/yourusername/SubFlow.git
+cd SubFlow
+```
 
-3. **OpenSubtitles Credentials**:
-   - Update the `OPENSUBTITLES_USER` and `OPENSUBTITLES_PASSWORD` variables in the script with your OpenSubtitles account details.
+### **Step 3: Install Dependencies**
+You can either let the script handle dependency installation automatically, or you can manually install them using the provided requirements.txt:
 
+```bash
+pip install -r requirements.txt
+```
 ---
 
 ## Usage
