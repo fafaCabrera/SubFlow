@@ -26,7 +26,7 @@
 ## Installation
 
 ### **Step 1: Install Python**
-Make sure you have Python 3.7 or higher installed. You can download it from [python.org](https://www.python.org/downloads/).
+Make sure you have [![Python Version](https://img.shields.io/badge/Python-3.7%2B-blue)](https://www.python.org/) installed. You can download it from [python.org](https://www.python.org/downloads/).
 
 ### **Step 2: Clone the Repository**
 Clone this repository to your local machine:
