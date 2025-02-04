@@ -1,127 +1,174 @@
-# **SubFlow**
+# SubFlow.py - README
 
-[![Python Version](https://img.shields.io/badge/Python-3.7%2B-blue)](https://www.python.org/) [![License](https://img.shields.io/badge/License-MIT-green)](https://opensource.org/licenses/MIT)
+## Overview
 
-**SubFlow** is a powerful Python script designed to automate the process of downloading and translating subtitles for video files. It integrates seamlessly with OpenSubtitles and uses AI-powered translation models to translate subtitles into your desired language.
+`SubFlow.py` is a Python script designed to automate the process of downloading and translating subtitles for video files. It supports both individual file processing and bulk folder scanning, with optional daemon mode for real-time monitoring of folders. The script integrates subtitle downloading via `subliminal`, translation using Hugging Face's `transformers`, and logging for tracking operations.
 
 ---
 
-## **Features**
+## Features
 
-- **Automated Subtitle Downloading**:
-  - Automatically downloads subtitles in your preferred language (e.g., Spanish) using OpenSubtitles.
-  - Falls back to English subtitles if the preferred language is unavailable.
+- **Subtitle Downloading**:
+  - Automatically downloads subtitles in the target language (default: Spanish) using `subliminal`.
+  - Falls back to English subtitles if the target language subtitles are unavailable.
+  
+- **Subtitle Translation**:
+  - Translates English subtitles to the target language using machine learning models from Hugging Face (`MarianMT`).
 
-- **AI-Powered Translation**:
-  - Translates English subtitles into your target language (e.g., Spanish) using state-of-the-art machine translation models from Hugging Face (`Helsinki-NLP`).
-
-- **Customizable**:
-  - Configure OpenSubtitles credentials directly in the script.
-  - Set your target language (default is Spanish, but you can change it to French, German, etc.).
+- **Daemon Mode**:
+  - Monitors specified folders for new or modified video files and processes them in real-time.
 
 - **Logging**:
-  - Detailed logs are generated for successful downloads, failed attempts, and translations.
+  - Generates detailed logs for all operations, including successes, failures, and translations.
+---
 
-- **Dependency Management**:
-  - Automatically installs all required dependencies if they’re not already installed.
+## Installation
 
-- **Watchdog Integration**:
-  - Continuously monitors a specified folder (and its subfolders) for new or modified video files with supported extensions (e.g., `.mp4`, `.avi`, `.mkv`).
-  - Automatically triggers `SubFlow.py` for each detected video file, enabling seamless subtitle extraction, translation, or other custom processing tasks.
-  - Processes multiple files sequentially, ensuring no overlap or resource contention.
+### Prerequisites
+
+1. **Python 3.7+**: Ensure Python is installed on your system.
+2. **Dependencies**:
+   - Install the required dependencies using the provided `requirements.txt` file:
+     ```bash
+     pip install -r requirements.txt
+     ```
+
+3. **OpenSubtitles Credentials**:
+   - Update the `OPENSUBTITLES_USER` and `OPENSUBTITLES_PASSWORD` variables in the script with your OpenSubtitles account details.
 
 ---
 
-## **Installation**
+## Usage
 
-### **Step 1: Install Python**
-Make sure you have Python 3.7 or higher installed. You can download it from [python.org](https://www.python.org/downloads/).
+### Command-Line Arguments
 
-### **Step 2: Clone the Repository**
-Clone this repository to your local machine:
-```bash
-git clone https://github.com/fafaCabrera/SubFlow.git
-cd SubFlow
+The script accepts two arguments:
+
+1. **Input Path**:
+   - A single video file, subtitle file, or folder containing video files.
+   
+2. **Log Name**:
+   - A name to identify the log files generated during execution.
+
+#### Example Commands
+
+- Process a single video file:
+  ```bash
+  python SubFlow.py /path/to/video.mkv my_log
+  ```
+
+- Process a folder of video files:
+  ```bash
+  python SubFlow.py /path/to/folder my_log
+  ```
+
+- Monitor a folder in daemon mode:
+  ```bash
+  python SubFlow.py /path/to/folder my_log
+  ```
+
+---
+
+## Configuration
+
+### Configurable Variables
+
+- **IGNORE_FOLDERS**:
+  - List of folder names to skip during folder scanning.
+  - Example:
+    ```python
+    IGNORE_FOLDERS = ["Los Simpsons", "The Expanse Complete Series"]
+    ```
+
+- **TARGET_LANGUAGE**:
+  - Target language for subtitles (default: `"es"` for Spanish).
+  - Example:
+    ```python
+    TARGET_LANGUAGE = "fr"  # For French
+    ```
+
+- **OPENSUBTITLES_USER** and **OPENSUBTITLES_PASSWORD**:
+  - Your OpenSubtitles credentials for subtitle downloading.
+
+---
+
+## Functionality Details
+
+### 1. Individual File Processing
+
+- If a video file is provided:
+  - Attempts to download subtitles in the target language.
+  - If unavailable, falls back to English subtitles and translates them.
+
+- If a subtitle file is provided:
+  - Translates the subtitle file to the target language.
+
+### 2. Folder Processing
+
+- Scans all subfolders for video files.
+- Processes each video file as described above.
+
+### 3. Daemon Mode
+
+- Monitors specified folders for new or modified video files.
+- Processes detected files in real-time without reinstalling dependencies.
+
+---
+
+## Logs
+
+All logs are stored in the `logs` directory within the script's folder. Log files include:
+
+- `log_subs_<log_name>.txt`: General log.
+- `log_subsfailed_<log_name>.txt`: Failed operations.
+- `log_subs<lang>download_<log_name>.txt`: Successful subtitle downloads.
+- `log_subsENGonly_<log_name>.txt`: Files requiring translation.
+
+---
+
+## Requirements
+
+The following dependencies are required to run the script. They can be installed using the `requirements.txt` file:
+
+### `requirements.txt`
+```text
+subliminal
+transformers
+torch
+srt
+sentencepiece
+watchdog
 ```
 
-### **Step 3: Install Dependencies**
-You can either let the script handle dependency installation automatically, or you can manually install them using the provided requirements.txt:
-
+Install the dependencies with:
 ```bash
 pip install -r requirements.txt
 ```
 
 ---
 
-## **Usage**
-### **Command-Line Arguments**
-**The script accepts two arguments:**
-1. Input Path : Path to a video file, subtitle file, or folder containing video files.
-2. Log Name : Name to use for log files.
+## Troubleshooting
 
-**Examples:**
-1. Process a Single Video File :
-```bash
-python SubFlow.py "C:\path\to\video.mp4" LOG_NAME
-```
-2. Process a Folder of Videos :
-```bash
-python SubFlow.py "C:\path\to\folder" LOG_NAME
-```
-3. Process a Single Subtitle File :
-```bash
-python SubFlow.py "C:\path\to\subtitle.en.srt" LOG_NAME
-```
-**Watchdog Usage:**
-To enable real-time monitoring of a folder for new or modified video files, use the following command:
-```bash
-python SubFlowDaemon.py /path/to/your/folder
-```
-The watchdog daemon will monitor the specified folder and trigger SubFlow.py for each detected video file.
-Files are processed sequentially, and real-time output is displayed in the console.
----
-## **Configuration**
-You can customize the following settings directly in the script:
+### Common Issues
 
-1. **OpenSubtitles Credentials :**
-    ```bash
-    OPENSUBTITLES_USER = "your_username"
-    OPENSUBTITLES_PASSWORD = "your_password"
-    ```
-2. **Target Language :**
-Change the default target language (Spanish) to another language (e.g., French):
-    ```bash
-    TARGET_LANGUAGE = "fr"  # Default is "es" for Spanish
-    ```
-3. **Ignored Folders :**
-Add folders to skip during processing:
-    ```bash
-    IGNORE_FOLDERS = ["Folder1", "Folder2"]
-    ```
----
-## **Dependencies**
-- **subliminal** : For downloading subtitles.
-- **transformers** : For AI-powered translation.
-- **torch** : PyTorch backend for GPU acceleration.
-- **srt** : For parsing and writing .srt files.
-- **sentencepiece** : Required by the translation model.
----
-## **Logs**
-All logs are stored in the logs directory relative to the script's location. The following log files are generated:
+1. **Subliminal Provider Errors**:
+   - Ensure `subliminal` is updated (`pip install --upgrade subliminal`).
+   - Verify OpenSubtitles credentials.
 
-- **log_subs_{LOG_NAME}.txt:** General log.
-- **log_subsfailed_{LOG_NAME}.txt:** Failed subtitle downloads.
-- **log_subsESPdownload_{LOG_NAME}.txt:** Successfully downloaded Spanish subtitles.
-- **log_subsENGdownload_{LOG_NAME}.txt:** Successfully downloaded English subtitles.
-- **log_subsENGonly_{LOG_NAME}.txt:** Subtitles that required translation.
+2. **Translation Failures**:
+   - Check GPU availability and memory usage.
+   - Ensure `transformers` and `torch` are properly installed.
+
+3. **Daemon Mode Not Working**:
+   - Ensure the `watchdog` library is installed.
+   - Verify folder permissions.
+
 ---
-## **Contributing**
-###### Contributions are welcome! If you find a bug or want to add a feature, feel free to open an issue or submit a pull request.
+
+## License
+
+This script is open-source and available under the MIT License. Feel free to modify and distribute it as needed.
+
+For support or contributions, visit the [GitHub repository](https://github.com/fafaCabrera/SubFlow).
+
 ---
-## **License**
-###### This project is licensed under the MIT License. See the LICENSE file for details.
----
-## **Acknowledgments**
-OpenSubtitles : For providing subtitle downloads.
-Hugging Face : For their amazing translation models.
-PyTorch : For enabling GPU-accelerated translation.
