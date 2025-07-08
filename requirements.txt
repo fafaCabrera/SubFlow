@@ -1,0 +1,8 @@
+subliminal
+transformers
+torch
+srt
+pysrt
+requests
+sentencepiece
+watchdog
