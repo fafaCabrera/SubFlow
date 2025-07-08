@@ -20,8 +20,8 @@ from whisper.utils import WriteSRT
 # Configurable Section
 # ============================
 IGNORE_FOLDERS = ["Los Simpsons", "The Expanse Complete Series", "The Leftovers"]
-OPENSUBTITLES_USER = "tacul"  # Replace with your OpenSubtitles username
-OPENSUBTITLES_PASSWORD = "corderos"  # Replace with your OpenSubtitles password
+OPENSUBTITLES_USER = "username"  # Replace with your OpenSubtitles username
+OPENSUBTITLES_PASSWORD = "password"  # Replace with your OpenSubtitles password
 TARGET_LANGUAGE = "es"  # Default target language (e.g., "es" for Spanish, "fr" for French)
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mkv'}
 
@@ -99,8 +99,8 @@ def add_credits_to_subtitle(subtitle_path, mode):
             "Modo Sublime"
         ),
         "opensubtitles_en": (
-            "Downloaded with github.com/fafaCabrera/SubFlow\n"
-            "OpenSubtitles mode"
+            "Descargado con github.com/fafaCabrera/SubFlow\n"
+            "Modo OpenSubtitles"
         ),
         "opensubtitles_es": (
             "Descargado con github.com/fafaCabrera/SubFlow\n"
@@ -111,7 +111,7 @@ def add_credits_to_subtitle(subtitle_path, mode):
             "Modo traducción"
         ),
         "whisper_en": (
-            "Generated with Whisper\n"
+            "Generado con Whisper\n"
             "github.com/fafaCabrera/SubFlow"
         ),
         "whisper_es": (
@@ -133,7 +133,7 @@ def add_credits_to_subtitle(subtitle_path, mode):
     # Write the updated subtitles back to the file
     with open(subtitle_path, 'w', encoding='utf-8') as f:
         f.write(srt.compose(subs))
-        
+
 def generate_subtitles_with_whisper(video_path, lang):
     """Generate subtitles using Whisper"""
     print(f"Generating subtitles with Whisper for: {video_path}")
@@ -246,7 +246,8 @@ def process_video_file(video_path, log_files, tgt_lang, is_daemon=False):
     
     # Check if target language subtitle exists
     tgt_srt = os.path.join(video_dir, f"{base_name}.{tgt_lang}.srt")
-    if os.path.exists(tgt_srt) and not is_daemon:
+    tgt_srt_whisper = os.path.join(video_dir, f"{base_name}.{tgt_lang}.1.srt")
+    if (os.path.exists(tgt_srt) or os.path.exists(tgt_srt_whisper)) and not is_daemon:
         print(f"{tgt_lang.upper()} subtitle found for: {video_path}")
         log_files['log'].write(f"{tgt_lang.upper()} subtitle found for: {video_path}\n")
         return  # Exit early if Spanish subtitles already exist in first run
