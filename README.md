@@ -16,7 +16,6 @@
 - **Subtitle Translation**:
   - Translates English subtitles to the target language using machine learning models from Hugging Face (`MarianMT`).
 
-<<<<<<< HEAD
 - **AI-Powered Translation**:
   - Translates English subtitles into your target language (e.g., Spanish) using state-of-the-art machine translation models from Hugging Face (`Helsinki-NLP`).
 
@@ -26,10 +25,6 @@
 - **Customizable**:
   - Configure OpenSubtitles credentials directly in the script.
   - Set your target language (default is Spanish, but you can change it to French, German, etc.).
-=======
-- **Daemon Mode**:
-  - Monitors specified folders for new or modified video files and processes them in real-time.
->>>>>>> 1b4c668fa1da08440486dd3d6c1fa5f451337ae5
 
 - **Logging**:
   - Generates detailed logs for all operations, including successes, failures, and translations.
@@ -96,7 +91,6 @@ The script accepts two arguments:
     ```python
     IGNORE_FOLDERS = ["Los Simpsons", "The Expanse Complete Series"]
     ```
-<<<<<<< HEAD
 2. **Target Language :**
 Change the default target language (Spanish) to another language (e.g., French):
     ```bash
@@ -118,8 +112,6 @@ Add folders to skip during processing:
 ---
 ## **Logs**
 All logs are stored in the logs directory relative to the script's location. The following log files are generated:
-=======
->>>>>>> 1b4c668fa1da08440486dd3d6c1fa5f451337ae5
 
 - **TARGET_LANGUAGE**:
   - Target language for subtitles (default: `"es"` for Spanish).
