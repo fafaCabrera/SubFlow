@@ -13,13 +13,15 @@ from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import time
+import whisper
+from whisper.utils import WriteSRT
 
 # ============================
 # Configurable Section
 # ============================
 IGNORE_FOLDERS = ["Los Simpsons", "The Expanse Complete Series", "The Leftovers"]
-OPENSUBTITLES_USER = "username"  # Replace with your OpenSubtitles username
-OPENSUBTITLES_PASSWORD = "password"  # Replace with your OpenSubtitles password
+OPENSUBTITLES_USER = "tacul"  # Replace with your OpenSubtitles username
+OPENSUBTITLES_PASSWORD = "corderos"  # Replace with your OpenSubtitles password
 TARGET_LANGUAGE = "es"  # Default target language (e.g., "es" for Spanish, "fr" for French)
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mkv'}
 
@@ -31,7 +33,9 @@ def install_dependencies():
         'torch': 'torch',
         'srt': 'srt',
         'sentencepiece': 'sentencepiece',
-        'watchdog': 'watchdog'
+        'watchdog': 'watchdog',
+        'whisper': 'openai-whisper',  # Whisper for automatic subtitle generation
+        'ffmpeg-python': 'ffmpeg-python'  # For handling video/audio processing
     }
     print("Checking dependencies...")
     installed = 0
@@ -91,16 +95,28 @@ def add_credits_to_subtitle(subtitle_path, mode):
             "Sublime mode"
         ),
         "sublime_es": (
+            "Descargado con github.com/fafaCabrera/SubFlow\n"
+            "Modo Sublime"
+        ),
+        "opensubtitles_en": (
             "Downloaded with github.com/fafaCabrera/SubFlow\n"
-            "Sublime mode"
+            "OpenSubtitles mode"
         ),
         "opensubtitles_es": (
-            "Downloaded with github.com/fafaCabrera/SubFlow\n"
-            "Subliminal mode (opensubtitles)"
+            "Descargado con github.com/fafaCabrera/SubFlow\n"
+            "Modo OpenSubtitles"
         ),
         "translated_es": (
-            "Downloaded with github.com/fafaCabrera/SubFlow\n"
-            "Subliminal mode and translated"
+            "Traducido con github.com/fafaCabrera/SubFlow\n"
+            "Modo traducción"
+        ),
+        "whisper_en": (
+            "Generated with Whisper\n"
+            "github.com/fafaCabrera/SubFlow"
+        ),
+        "whisper_es": (
+            "Generado con Whisper\n"
+            "github.com/fafaCabrera/SubFlow"
         ),
     }
     with open(subtitle_path, 'r', encoding='utf-8') as f:
@@ -117,6 +133,45 @@ def add_credits_to_subtitle(subtitle_path, mode):
     # Write the updated subtitles back to the file
     with open(subtitle_path, 'w', encoding='utf-8') as f:
         f.write(srt.compose(subs))
+        
+def generate_subtitles_with_whisper(video_path, lang):
+    """Generate subtitles using Whisper"""
+    print(f"Generating subtitles with Whisper for: {video_path}")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+    model = whisper.load_model("small", device=device)  # Cambia "small" por "tiny" si es necesario
+    
+    result = model.transcribe(video_path, verbose=False)
+    
+    # Crear archivo .srt
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    video_dir = os.path.dirname(video_path)
+    output_path = os.path.join(video_dir, f"{base_name}.{lang}.1.srt")  # Agrega sufijo .1 para diferenciar
+    
+    with open(output_path, 'w', encoding='utf-8') as srt_file:
+        writer = WriteSRT(video_dir)
+        writer.write_result(result, srt_file, options=None)
+    
+    print(f"Whisper subtitles generated: {output_path}")
+    add_credits_to_subtitle(output_path, f"whisper_{lang}")
+    return output_path
+
+def download_subtitles(video_path, lang, log_files):
+    """Download subtitles using subliminal."""
+    print(f"Downloading {lang.upper()} subtitles for: {video_path}")
+    subprocess.run(["subliminal", "download", "-l", lang, video_path])
+    subprocess.run([
+        "subliminal", "--opensubtitles", OPENSUBTITLES_USER, OPENSUBTITLES_PASSWORD,
+        "download", "-p", "opensubtitles", "-l", lang, video_path
+    ])
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    subtitle_path = os.path.join(os.path.dirname(video_path), f"{base_name}.{lang}.srt")
+    if os.path.exists(subtitle_path):
+        print(f"{lang.upper()} subtitle downloaded for: {video_path}")
+        log_files[f'{lang}_down_log'].write(f"{lang.upper()} subtitle downloaded for: {video_path}\n")
+        add_credits_to_subtitle(subtitle_path, f"opensubtitles_{lang}")
+        return True
+    return False
 
 def translate_srt(input_file, src_lang, tgt_lang):
     """Main translation function with enhanced GPU monitoring"""
@@ -184,55 +239,43 @@ def translate_srt(input_file, src_lang, tgt_lang):
     print(f"\nTranslation completed in {duration.total_seconds():.1f} seconds")
     print(f"Output file created: {os.path.abspath(output_file)}")
 
-def download_subtitles(video_path, lang, log_files):
-    """Download subtitles using subliminal."""
-    print(f"Downloading {lang.upper()} subtitles for: {video_path}")
-    subprocess.run(["subliminal", "download", "-l", lang, video_path])
-    subprocess.run([
-        "subliminal", "--opensubtitles", OPENSUBTITLES_USER, OPENSUBTITLES_PASSWORD,
-        "download", "-p", "opensubtitles", "-l", lang, video_path
-    ])
-    base_name = os.path.splitext(os.path.basename(video_path))[0]
-    subtitle_path = os.path.join(os.path.dirname(video_path), f"{base_name}.{lang}.srt")
-    if os.path.exists(subtitle_path):
-        print(f"{lang.upper()} subtitle downloaded for: {video_path}")
-        log_files[f'{lang}_down_log'].write(f"{lang.upper()} subtitle downloaded for: {video_path}\n")
-        # Add credits based on the mode
-        if lang == "en":
-            add_credits_to_subtitle(subtitle_path, "sublime_en")
-        elif lang == TARGET_LANGUAGE:
-            add_credits_to_subtitle(subtitle_path, "sublime_es")
-        return True
-    return False
-
-def process_video_file(video_path, log_files, tgt_lang):
+def process_video_file(video_path, log_files, tgt_lang, is_daemon=False):
     """Process a single video file"""
     base_name = os.path.splitext(os.path.basename(video_path))[0]
     video_dir = os.path.dirname(video_path)
     
     # Check if target language subtitle exists
     tgt_srt = os.path.join(video_dir, f"{base_name}.{tgt_lang}.srt")
-    if os.path.exists(tgt_srt):
+    if os.path.exists(tgt_srt) and not is_daemon:
         print(f"{tgt_lang.upper()} subtitle found for: {video_path}")
         log_files['log'].write(f"{tgt_lang.upper()} subtitle found for: {video_path}\n")
-        return  # Exit early if Spanish subtitles already exist
+        return  # Exit early if Spanish subtitles already exist in first run
     
     # Try downloading target language subtitle
-    if not download_subtitles(video_path, tgt_lang, log_files):
-        # Check if English subtitle exists
+    downloaded_es = download_subtitles(video_path, tgt_lang, log_files)
+    downloaded_en = download_subtitles(video_path, "en", log_files)
+    
+    # If no subtitles were downloaded, attempt translation or fallback to Whisper
+    if not downloaded_es:
         en_srt = os.path.join(video_dir, f"{base_name}.en.srt")
-        if not os.path.exists(en_srt):
-            download_subtitles(video_path, "en", log_files)
         if os.path.exists(en_srt):
             print(f"EN Found, Translating....")
             log_files['en_only_log'].write(f"Needs Translate: {video_path}\n")
             translate_srt(en_srt, "en", tgt_lang)
         else:
-            print(f"Failed to get subtitles for: {video_path}")
-            log_files['failed_log'].write(f"Failed to get subtitles for: {video_path}\n")
-            log_files['log'].write(f"Failed to get subtitles for: {video_path}\n")
+            print(f"No subtitles found or downloaded for: {video_path}")
+            log_files['failed_log'].write(f"Faltan subtítulos en español para: {video_path}\n")
+            log_files['log'].write(f"Faltan subtítulos en español para: {video_path}\n")
+            # Generate subtitles with Whisper only if in first run or daemon mode
+            if not is_daemon:
+                generate_subtitles_with_whisper(video_path, tgt_lang)
+    
+    # In daemon mode, always generate subtitles with Whisper
+    if is_daemon:
+        generate_subtitles_with_whisper(video_path, "en")
+        generate_subtitles_with_whisper(video_path, tgt_lang)
 
-def process_folder(folder_path, log_files, tgt_lang):
+def process_folder(folder_path, log_files, tgt_lang, is_daemon=False):
     """Process all video files in a folder and its subfolders."""
     for root, dirs, files in os.walk(folder_path):
         if should_skip_folder(root):
@@ -241,7 +284,7 @@ def process_folder(folder_path, log_files, tgt_lang):
         for file in files:
             if file.endswith(tuple(VIDEO_EXTENSIONS)):
                 video_path = os.path.join(root, file)
-                process_video_file(video_path, log_files, tgt_lang)
+                process_video_file(video_path, log_files, tgt_lang, is_daemon)
 
 def monitor_folders(folder_paths, log_files, tgt_lang):
     """Monitor multiple folders for new video files."""
@@ -252,7 +295,7 @@ def monitor_folders(folder_paths, log_files, tgt_lang):
                 _, ext = os.path.splitext(file_path)
                 if ext.lower() in VIDEO_EXTENSIONS:
                     print(f"New video file detected: {file_path}")
-                    process_video_file(file_path, log_files, tgt_lang)
+                    process_video_file(file_path, log_files, tgt_lang, is_daemon=True)
         
         def on_moved(self, event):
             if not event.is_directory:
@@ -260,7 +303,7 @@ def monitor_folders(folder_paths, log_files, tgt_lang):
                 _, ext = os.path.splitext(dest_path)
                 if ext.lower() in VIDEO_EXTENSIONS:
                     print(f"Renamed video file detected: {dest_path}")
-                    process_video_file(dest_path, log_files, tgt_lang)
+                    process_video_file(dest_path, log_files, tgt_lang, is_daemon=True)
     
     observers = []
     for folder_path in folder_paths:
@@ -306,7 +349,7 @@ def main(input_paths, log_name):
     for input_path in input_paths:
         if os.path.isfile(input_path):
             if input_path.endswith(tuple(VIDEO_EXTENSIONS)):
-                process_video_file(input_path, log_files, TARGET_LANGUAGE)
+                process_video_file(input_path, log_files, TARGET_LANGUAGE, is_daemon=False)
             elif input_path.endswith(".srt"):
                 print(f"Translating subtitle: {input_path}")
                 translate_srt(input_path, "en", TARGET_LANGUAGE)
@@ -314,7 +357,7 @@ def main(input_paths, log_name):
                 print(f"Unsupported file type: {input_path}")
                 log_files['log'].write(f"Unsupported file type: {input_path}\n")
         elif os.path.isdir(input_path):
-            process_folder(input_path, log_files, TARGET_LANGUAGE)
+            process_folder(input_path, log_files, TARGET_LANGUAGE, is_daemon=False)
         else:
             print(f"The specified path does not exist: {input_path}")
             sys.exit(1)
