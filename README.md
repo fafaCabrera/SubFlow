@@ -15,6 +15,9 @@
 - **AI-Powered Translation**:
   - Translates English subtitles into your target language (e.g., Spanish) using state-of-the-art machine translation models from Hugging Face (`Helsinki-NLP`).
 
+- **AI-Powered Transcribing**:
+  - Transcribes subtitles from video user open-ai Whisper model.
+
 - **Customizable**:
   - Configure OpenSubtitles credentials directly in the script.
   - Set your target language (default is Spanish, but you can change it to French, German, etc.).
@@ -88,6 +91,7 @@ Add folders to skip during processing:
     ```
 ---
 ## **Dependencies**
+- **whisper** : For transcribing audio.
 - **subliminal** : For downloading subtitles.
 - **transformers** : For AI-powered translation.
 - **torch** : PyTorch backend for GPU acceleration.
