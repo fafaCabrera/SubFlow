@@ -90,14 +90,6 @@ def translate_text(text, model, tokenizer, device):
 def add_credits_to_subtitle(subtitle_path, mode):
     """Add credits to the subtitle file based on the mode."""
     credit_lines = {
-        "sublime_en": (
-            "Downloaded with github.com/fafaCabrera/SubFlow\n"
-            "Sublime mode"
-        ),
-        "sublime_es": (
-            "Descargado con github.com/fafaCabrera/SubFlow\n"
-            "Modo Sublime"
-        ),
         "opensubtitles_en": (
             "Descargado con github.com/fafaCabrera/SubFlow\n"
             "Modo OpenSubtitles"
@@ -269,12 +261,21 @@ def process_video_file(video_path, log_files, tgt_lang, is_daemon=False):
             log_files['log'].write(f"Faltan subtítulos en español para: {video_path}\n")
             # Generate subtitles with Whisper only if in first run or daemon mode
             if not is_daemon:
+                generate_subtitles_with_whisper(video_path, "en")
+                en_srt_whisper = os.path.join(video_dir, f"{base_name}.en.1.srt")
+                if os.path.exists(en_srt_whisper):
+                    print(f"Translating Whisper-generated EN subtitles to ES...")
+                    translate_srt(en_srt_whisper, "en", tgt_lang)
+            else:
+                generate_subtitles_with_whisper(video_path, "en")
                 generate_subtitles_with_whisper(video_path, tgt_lang)
     
     # In daemon mode, always generate subtitles with Whisper
     if is_daemon:
-        generate_subtitles_with_whisper(video_path, "en")
-        generate_subtitles_with_whisper(video_path, tgt_lang)
+        whisper_en_srt = generate_subtitles_with_whisper(video_path, "en")
+        if tgt_lang != "en":
+            print(f"Translating Whisper-generated EN subtitles to {tgt_lang.upper()}...")
+            translate_srt(whisper_en_srt, "en", tgt_lang)
 
 def process_folder(folder_path, log_files, tgt_lang, is_daemon=False):
     """Process all video files in a folder and its subfolders."""
