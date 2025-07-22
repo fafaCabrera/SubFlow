@@ -8,8 +8,6 @@ import srt
 from datetime import datetime, timedelta
 from transformers import MarianMTModel, MarianTokenizer
 import torch
-from queue import Queue
-from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import time
@@ -25,6 +23,16 @@ OPENSUBTITLES_PASSWORD = "password"  # Replace with your OpenSubtitles password
 TARGET_LANGUAGE = "es"  # Default target language (e.g., "es" for Spanish, "fr" for French)
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mkv'}
 
+# Keywords to ignore (sample, trailer, etc.)
+IGNORE_KEYWORDS = ['sample', 'trailer', 'clip', 'demo']
+
+
+def is_ignored_file(filename):
+    """Check if the file should be ignored based on keywords"""
+    name_lower = filename.lower()
+    return any(keyword in name_lower for keyword in IGNORE_KEYWORDS)
+
+
 def install_dependencies():
     """Install required packages with user feedback"""
     required_packages = {
@@ -34,12 +42,11 @@ def install_dependencies():
         'srt': 'srt',
         'sentencepiece': 'sentencepiece',
         'watchdog': 'watchdog',
-        'whisper': 'openai-whisper',  # Whisper for automatic subtitle generation
-        'ffmpeg-python': 'ffmpeg-python'  # For handling video/audio processing
+        'whisper': 'openai-whisper',
+        'ffmpeg-python': 'ffmpeg-python'
     }
     print("Checking dependencies...")
     installed = 0
-
     for package, install_name in required_packages.items():
         try:
             __import__(package)
@@ -52,11 +59,11 @@ def install_dependencies():
             )
             print(f"✓ {package} installed successfully")
             installed += 1
-
     if installed == 0:
         print("All dependencies are already installed!")
     else:
         print(f"Installed {installed} new packages")
+
 
 def should_skip_folder(path):
     """Check if the folder should be skipped based on IGNORE_FOLDERS"""
@@ -65,14 +72,15 @@ def should_skip_folder(path):
             return True
     return False
 
+
 def get_model_name(src_lang, tgt_lang):
     """Get model name with user feedback"""
     model_map = {
         ('en', 'es'): 'Helsinki-NLP/opus-mt-en-es',
         ('en', 'fr'): 'Helsinki-NLP/opus-mt-en-fr',
-        # Add other model pairs as needed
     }
     return model_map.get((src_lang, tgt_lang), f'Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}')
+
 
 def translate_text(text, model, tokenizer, device):
     """Translate individual text segment with GPU support"""
@@ -86,6 +94,7 @@ def translate_text(text, model, tokenizer, device):
             torch.cuda.empty_cache()
             return translate_text(text, model, tokenizer, device)
         raise
+
 
 def add_credits_to_subtitle(subtitle_path, mode):
     """Add credits to the subtitle file based on the mode."""
@@ -111,53 +120,69 @@ def add_credits_to_subtitle(subtitle_path, mode):
             "github.com/fafaCabrera/SubFlow"
         ),
     }
-    with open(subtitle_path, 'r', encoding='utf-8') as f:
-        subs = list(srt.parse(f.read()))
-    # Create a new subtitle entry for the credits
+    try:
+        with open(subtitle_path, 'r', encoding='utf-8') as f:
+            subs = list(srt.parse(f.read()))
+    except Exception as e:
+        print(f"Error reading subtitle file {subtitle_path}: {e}")
+        return
+
     credits_entry = srt.Subtitle(
         index=0,
         start=timedelta(seconds=3),
         end=timedelta(seconds=13),
         content=credit_lines[mode]
     )
-    # Insert the credits at the beginning
     subs.insert(0, credits_entry)
-    # Write the updated subtitles back to the file
+
     with open(subtitle_path, 'w', encoding='utf-8') as f:
         f.write(srt.compose(subs))
 
+
 def generate_subtitles_with_whisper(video_path, lang):
     """Generate subtitles using Whisper"""
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    video_dir = os.path.dirname(video_path)
+    output_path = os.path.join(video_dir, f"{base_name}.{lang}.1.srt")
+
+    # Skip if already exists
+    if os.path.exists(output_path):
+        print(f"Whisper subtitle already exists, skipping generation: {output_path}")
+        return output_path
+
     print(f"Generating subtitles with Whisper for: {video_path}")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
-    model = whisper.load_model("small", device=device)  # Cambia "small" por "tiny" si es necesario
-    
+    model = whisper.load_model("small", device=device)
     result = model.transcribe(video_path, verbose=False)
-    
-    # Crear archivo .srt
-    base_name = os.path.splitext(os.path.basename(video_path))[0]
-    video_dir = os.path.dirname(video_path)
-    output_path = os.path.join(video_dir, f"{base_name}.{lang}.1.srt")  # Agrega sufijo .1 para diferenciar
-    
+
     with open(output_path, 'w', encoding='utf-8') as srt_file:
         writer = WriteSRT(video_dir)
         writer.write_result(result, srt_file, options=None)
-    
+
     print(f"Whisper subtitles generated: {output_path}")
     add_credits_to_subtitle(output_path, f"whisper_{lang}")
     return output_path
 
+
 def download_subtitles(video_path, lang, log_files):
     """Download subtitles using subliminal."""
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    video_dir = os.path.dirname(video_path)
+    subtitle_path = os.path.join(video_dir, f"{base_name}.{lang}.srt")
+
+    # Skip if already exists
+    if os.path.exists(subtitle_path):
+        print(f"{lang.upper()} subtitle already exists: {video_path}")
+        return True
+
     print(f"Downloading {lang.upper()} subtitles for: {video_path}")
-    subprocess.run(["subliminal", "download", "-l", lang, video_path])
-    subprocess.run([
+    result1 = subprocess.run(["subliminal", "download", "-l", lang, video_path])
+    result2 = subprocess.run([
         "subliminal", "--opensubtitles", OPENSUBTITLES_USER, OPENSUBTITLES_PASSWORD,
         "download", "-p", "opensubtitles", "-l", lang, video_path
     ])
-    base_name = os.path.splitext(os.path.basename(video_path))[0]
-    subtitle_path = os.path.join(os.path.dirname(video_path), f"{base_name}.{lang}.srt")
+
     if os.path.exists(subtitle_path):
         print(f"{lang.upper()} subtitle downloaded for: {video_path}")
         log_files[f'{lang}_down_log'].write(f"{lang.upper()} subtitle downloaded for: {video_path}\n")
@@ -165,31 +190,52 @@ def download_subtitles(video_path, lang, log_files):
         return True
     return False
 
+
 def translate_srt(input_file, src_lang, tgt_lang):
-    """Main translation function with enhanced GPU monitoring"""
+    """Translate SRT file with proper naming and duplicate prevention."""
+    if not os.path.exists(input_file):
+        print(f"Input file not found: {input_file}")
+        return
+
+    base_name = os.path.splitext(os.path.basename(input_file))[0]
+    dir_name = os.path.dirname(input_file)
+
+    # Determine output name based on input suffix
+    if base_name.endswith(f'.{src_lang}.1'):
+        base_main = base_name[:-len(f'.{src_lang}.1')]
+        output_file = os.path.join(dir_name, f"{base_main}.{tgt_lang}.1.srt")
+    elif base_name.endswith(f'.{src_lang}'):
+        base_main = base_name[:-len(f'.{src_lang}')]
+        output_file = os.path.join(dir_name, f"{base_main}.{tgt_lang}.srt")
+    else:
+        output_file = os.path.join(dir_name, f"{base_name}.{tgt_lang}.srt")
+
+    # Skip if translation already exists
+    if os.path.exists(output_file):
+        print(f"Translated subtitle already exists, skipping: {output_file}")
+        return output_file
+
     start_time = datetime.now()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"\nStarting translation: {src_lang} → {tgt_lang}")
     print(f"Using: {'GPU acceleration' if device.type == 'cuda' else 'CPU'} mode")
     print(f"Input file: {os.path.abspath(input_file)}")
-    # Model setup
+
     model_name = get_model_name(src_lang, tgt_lang)
     print(f"Loading model '{model_name}'...")
     try:
         tokenizer = MarianTokenizer.from_pretrained(model_name)
         model = MarianMTModel.from_pretrained(model_name).to(device)
         print(f"Model loaded on {device.type.upper()}")
-        print(f"Model device: {next(model.parameters()).device}")
     except Exception as e:
         print(f"Failed to load model: {str(e)}")
         sys.exit(1)
-    # Read and parse SRT
-    print("\nProcessing subtitle file...")
+
     with open(input_file, 'r', encoding='utf-8') as f:
         subs = list(srt.parse(f.read()))
     total_subs = len(subs)
     print(f"Found {total_subs} subtitles to translate")
-    # Translation process
+
     translated_subs = []
     print("\nTranslation progress:")
     for idx, sub in enumerate(subs, 1):
@@ -208,74 +254,69 @@ def translate_srt(input_file, src_lang, tgt_lang):
             end=sub.end,
             content=translated_content
         ))
-        # Print GPU memory usage every 10%
         if idx % max(1, total_subs // 10) == 0 and device.type == 'cuda':
             mem_usage = torch.cuda.memory_allocated() / 1024**3
             print(f"  GPU VRAM: {mem_usage:.2f} GB used | {idx}/{total_subs} ({idx / total_subs:.0%})")
         else:
             progress = idx / total_subs
             print(f"  █ {idx}/{total_subs} ({progress:.0%})", end='\r')
-    # Cleanup
+
     if device.type == 'cuda':
         torch.cuda.empty_cache()
-    # Generate output filename
-    base_path = os.path.splitext(input_file)[0].rsplit('.', 1)[0]
-    output_file = f"{base_path}.{tgt_lang}.srt"
-    # Write output
+
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(srt.compose(translated_subs))
-    # Add credits
+
     add_credits_to_subtitle(output_file, "translated_es")
-    # Final report
+
     duration = datetime.now() - start_time
     print(f"\nTranslation completed in {duration.total_seconds():.1f} seconds")
     print(f"Output file created: {os.path.abspath(output_file)}")
+    return output_file
+
 
 def process_video_file(video_path, log_files, tgt_lang, is_daemon=False):
     """Process a single video file"""
     base_name = os.path.splitext(os.path.basename(video_path))[0]
     video_dir = os.path.dirname(video_path)
-    
-    # Check if target language subtitle exists
-    tgt_srt = os.path.join(video_dir, f"{base_name}.{tgt_lang}.srt")
-    tgt_srt_whisper = os.path.join(video_dir, f"{base_name}.{tgt_lang}.1.srt")
-    if (os.path.exists(tgt_srt) or os.path.exists(tgt_srt_whisper)) and not is_daemon:
+
+    # Skip if file is a sample/clip/etc.
+    if is_ignored_file(base_name):
+        print(f"Ignoring sample/clip file: {video_path}")
+        log_files['log'].write(f"Ignoring sample file: {video_path}\n")
+        return
+
+    # Check if .es.srt already exists (from any source)
+    es_srt = os.path.join(video_dir, f"{base_name}.{tgt_lang}.srt")
+    if os.path.exists(es_srt):
         print(f"{tgt_lang.upper()} subtitle found for: {video_path}")
         log_files['log'].write(f"{tgt_lang.upper()} subtitle found for: {video_path}\n")
-        return  # Exit early if Spanish subtitles already exist in first run
-    
-    # Try downloading target language subtitle
+
+    # --- Paso 1: Descargar .es.srt y .en.srt ---
     downloaded_es = download_subtitles(video_path, tgt_lang, log_files)
     downloaded_en = download_subtitles(video_path, "en", log_files)
-    
-    # If no subtitles were downloaded, attempt translation or fallback to Whisper
-    if not downloaded_es:
-        en_srt = os.path.join(video_dir, f"{base_name}.en.srt")
-        if os.path.exists(en_srt):
-            print(f"EN Found, Translating....")
-            log_files['en_only_log'].write(f"Needs Translate: {video_path}\n")
-            translate_srt(en_srt, "en", tgt_lang)
-        else:
+
+    en_srt = os.path.join(video_dir, f"{base_name}.en.srt")
+
+    # Si hay .en.srt pero no .es.srt, traducir
+    if os.path.exists(en_srt) and not os.path.exists(es_srt):
+        print("EN Found, Translating....")
+        log_files['en_only_log'].write(f"Needs Translate: {video_path}\n")
+        translate_srt(en_srt, "en", tgt_lang)
+
+    # --- Paso 2: Modo daemon → generar con Whisper y traducir ---
+    if is_daemon:
+        print("Daemon mode: Generating Whisper subtitles...")
+        whisper_en_srt = generate_subtitles_with_whisper(video_path, "en")
+        if os.path.exists(whisper_en_srt):
+            translate_srt(whisper_en_srt, "en", tgt_lang)
+    else:
+        # Modo escaneo: registrar si faltan subtítulos
+        if not downloaded_es and not downloaded_en:
             print(f"No subtitles found or downloaded for: {video_path}")
             log_files['failed_log'].write(f"Faltan subtítulos en español para: {video_path}\n")
             log_files['log'].write(f"Faltan subtítulos en español para: {video_path}\n")
-            # Generate subtitles with Whisper only if in first run or daemon mode
-            if not is_daemon:
-                generate_subtitles_with_whisper(video_path, "en")
-                en_srt_whisper = os.path.join(video_dir, f"{base_name}.en.1.srt")
-                if os.path.exists(en_srt_whisper):
-                    print(f"Translating Whisper-generated EN subtitles to ES...")
-                    translate_srt(en_srt_whisper, "en", tgt_lang)
-            else:
-                generate_subtitles_with_whisper(video_path, "en")
-                generate_subtitles_with_whisper(video_path, tgt_lang)
-    
-    # In daemon mode, always generate subtitles with Whisper
-    if is_daemon:
-        whisper_en_srt = generate_subtitles_with_whisper(video_path, "en")
-        if tgt_lang != "en":
-            print(f"Translating Whisper-generated EN subtitles to {tgt_lang.upper()}...")
-            translate_srt(whisper_en_srt, "en", tgt_lang)
+
 
 def process_folder(folder_path, log_files, tgt_lang, is_daemon=False):
     """Process all video files in a folder and its subfolders."""
@@ -288,6 +329,7 @@ def process_folder(folder_path, log_files, tgt_lang, is_daemon=False):
                 video_path = os.path.join(root, file)
                 process_video_file(video_path, log_files, tgt_lang, is_daemon)
 
+
 def monitor_folders(folder_paths, log_files, tgt_lang):
     """Monitor multiple folders for new video files."""
     class VideoFileHandler(FileSystemEventHandler):
@@ -296,17 +338,23 @@ def monitor_folders(folder_paths, log_files, tgt_lang):
                 file_path = event.src_path
                 _, ext = os.path.splitext(file_path)
                 if ext.lower() in VIDEO_EXTENSIONS:
+                    if is_ignored_file(os.path.basename(file_path)):
+                        print(f"Ignoring sample file on creation: {file_path}")
+                        return
                     print(f"New video file detected: {file_path}")
                     process_video_file(file_path, log_files, tgt_lang, is_daemon=True)
-        
+
         def on_moved(self, event):
             if not event.is_directory:
                 dest_path = event.dest_path
                 _, ext = os.path.splitext(dest_path)
                 if ext.lower() in VIDEO_EXTENSIONS:
+                    if is_ignored_file(os.path.basename(dest_path)):
+                        print(f"Ignoring sample file on move: {dest_path}")
+                        return
                     print(f"Renamed video file detected: {dest_path}")
                     process_video_file(dest_path, log_files, tgt_lang, is_daemon=True)
-    
+
     observers = []
     for folder_path in folder_paths:
         observer = Observer()
@@ -314,28 +362,28 @@ def monitor_folders(folder_paths, log_files, tgt_lang):
         observer.schedule(event_handler, path=folder_path, recursive=True)
         observer.start()
         observers.append(observer)
-    
+
+    print("Monitoring folders for new video files... (Press Ctrl+C to stop)")
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
+        print("\nStopping monitor...")
         for observer in observers:
             observer.stop()
         for observer in observers:
             observer.join()
 
-def main(input_paths, log_name):
+
+def main(input_paths, log_name, skip_scan=False):
     """Main function to process video files or folders"""
-    # Install dependencies only if processing folders
     if any(os.path.isdir(path) for path in input_paths):
         install_dependencies()
-    
-    # Get the script directory
+
     script_dir = Path(__file__).parent.absolute()
     logs_dir = script_dir / "logs"
     logs_dir.mkdir(exist_ok=True)
-    
-    # Initialize log file paths
+
     log_files = {
         'log': open(logs_dir / f"log_subs_{log_name}.txt", 'w'),
         'failed_log': open(logs_dir / f"log_subsfailed_{log_name}.txt", 'w'),
@@ -345,37 +393,44 @@ def main(input_paths, log_name):
     }
     log_files['log'].write("LOG START:\n")
     log_files['log'].write(f"Ignoring folders: {', '.join(IGNORE_FOLDERS)}\n")
+    log_files['log'].write(f"Ignoring keywords: {', '.join(IGNORE_KEYWORDS)}\n")
     log_files['log'].write(f"Target language: {TARGET_LANGUAGE.upper()}\n")
-    
-    # Process input
-    for input_path in input_paths:
-        if os.path.isfile(input_path):
-            if input_path.endswith(tuple(VIDEO_EXTENSIONS)):
-                process_video_file(input_path, log_files, TARGET_LANGUAGE, is_daemon=False)
-            elif input_path.endswith(".srt"):
-                print(f"Translating subtitle: {input_path}")
-                translate_srt(input_path, "en", TARGET_LANGUAGE)
-            else:
-                print(f"Unsupported file type: {input_path}")
-                log_files['log'].write(f"Unsupported file type: {input_path}\n")
-        elif os.path.isdir(input_path):
-            process_folder(input_path, log_files, TARGET_LANGUAGE, is_daemon=False)
+
+    folder_paths = [path for path in input_paths if os.path.isdir(path)]
+    file_paths = [path for path in input_paths if os.path.isfile(path)]
+
+    for input_path in file_paths:
+        if input_path.endswith(tuple(VIDEO_EXTENSIONS)):
+            if is_ignored_file(os.path.basename(input_path)):
+                print(f"Ignoring sample file: {input_path}")
+                log_files['log'].write(f"Ignoring sample file: {input_path}\n")
+                continue
+            process_video_file(input_path, log_files, TARGET_LANGUAGE)
+        elif input_path.endswith(".srt"):
+            print(f"Translating subtitle: {input_path}")
+            translate_srt(input_path, "en", TARGET_LANGUAGE)
         else:
-            print(f"The specified path does not exist: {input_path}")
-            sys.exit(1)
-    
-    # If folders were provided, start monitoring them
-    if any(os.path.isdir(path) for path in input_paths):
-        folder_paths = [path for path in input_paths if os.path.isdir(path)]
-        monitor_folders(folder_paths, log_files, TARGET_LANGUAGE)
-    
-    # Close log files
+            print(f"Unsupported file type: {input_path}")
+            log_files['log'].write(f"Unsupported file type: {input_path}\n")
+
+    if skip_scan:
+        print("Skipping initial scan. Starting in daemon mode only...")
+        if folder_paths:
+            monitor_folders(folder_paths, log_files, TARGET_LANGUAGE)
+    else:
+        for folder_path in folder_paths:
+            process_folder(folder_path, log_files, TARGET_LANGUAGE)
+        if folder_paths:
+            monitor_folders(folder_paths, log_files, TARGET_LANGUAGE)
+
     for log in log_files.values():
         log.close()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process video files and download subtitles.")
     parser.add_argument('input_paths', nargs='+', help='Paths to video files, subtitle files, or folders containing video files.')
     parser.add_argument('log_name', help='Name to use for log files.')
+    parser.add_argument('--daemon', '-d', action='store_true', help='Skip initial scan and go directly to daemon mode (monitor only).')
     args = parser.parse_args()
-    main(args.input_paths, args.log_name)
+    main(args.input_paths, args.log_name, skip_scan=args.daemon)
